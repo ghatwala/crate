@@ -25,6 +25,7 @@ import com.carrotsearch.randomizedtesting.RandomizedTest;
 import io.crate.breaker.RamAccountingContext;
 import io.crate.data.BatchIterator;
 import io.crate.data.Row;
+import io.crate.exceptions.JobKilledException;
 import io.crate.execution.dsl.phases.RoutedCollectPhase;
 import io.crate.execution.jobs.SharedShardContexts;
 import io.crate.metadata.Routing;
@@ -87,14 +88,14 @@ public class CollectTaskTest extends RandomizedTest {
     }
 
     @Test
-    public void testInnerCloseClosesSearchContexts() throws Exception {
+    public void testKillClosesSearchContexts() throws Exception {
         Engine.Searcher mock1 = mock(Engine.Searcher.class);
         Engine.Searcher mock2 = mock(Engine.Searcher.class);
 
         collectTask.addSearcher(1, mock1);
         collectTask.addSearcher(2, mock2);
 
-        collectTask.innerClose(null);
+        collectTask.kill(new JobKilledException());
 
         verify(mock1, times(1)).close();
         verify(mock2, times(1)).close();

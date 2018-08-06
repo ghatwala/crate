@@ -27,6 +27,13 @@ import javax.annotation.Nullable;
 
 public interface Task extends CompletionListenable<CompletionState> {
 
+    enum State {
+        CREATED,
+        PREPARED,
+        RUNNING,
+        STOPPED,
+    }
+
     /**
      * In the prepare phase implementations of this interface can allocate any resources.
      * Exception are required to be thrown directly and must not be set on the downstream.
