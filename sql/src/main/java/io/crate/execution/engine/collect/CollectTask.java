@@ -141,7 +141,12 @@ public class CollectTask extends AbstractTask {
             close(t);
             throw t;
         }
-        collectOperation.launch(() -> consumer.accept(batchIterator, null), threadPoolName);
+        try {
+            collectOperation.launch(() -> consumer.accept(batchIterator, null), threadPoolName);
+        } catch (Throwable t) {
+            batchIterator.kill(t);
+            throw t;
+        }
     }
 
     public RamAccountingContext queryPhaseRamAccountingContext() {

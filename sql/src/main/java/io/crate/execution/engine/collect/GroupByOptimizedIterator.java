@@ -142,7 +142,6 @@ final class GroupByOptimizedIterator {
                 System::currentTimeMillis,
                 null
             );
-            collectTask.addSearcher(sharedShardContext.readerId(), searcher);
 
             InputFactory.Context<? extends LuceneCollectorExpression<?>> docCtx = docInputFactory.getCtx();
             docCtx.add(collectPhase.toCollect().stream().filter(s -> !s.equals(keyRef))::iterator);
@@ -172,7 +171,7 @@ final class GroupByOptimizedIterator {
             );
             return CollectingBatchIterator.newInstance(
                 searcher::close,
-                t -> {},
+                t -> searcher.close(),
                 () -> {
                     try {
                         return CompletableFuture.completedFuture(
