@@ -338,13 +338,22 @@ public class ShardCollectSource extends AbstractComponent implements CollectSour
                         supportMoveToStart)
                     );
                 } catch (ShardNotFoundException | IllegalIndexShardStateException e) {
+                    for (OrderedDocCollector orderedDocCollector : orderedDocCollectors) {
+                        orderedDocCollector.close();
+                    }
                     throw e;
                 } catch (IndexNotFoundException e) {
                     if (IndexParts.isPartitioned(indexName)) {
                         break;
                     }
+                    for (OrderedDocCollector orderedDocCollector : orderedDocCollectors) {
+                        orderedDocCollector.close();
+                    }
                     throw e;
                 } catch (Throwable t) {
+                    for (OrderedDocCollector orderedDocCollector : orderedDocCollectors) {
+                        orderedDocCollector.close();
+                    }
                     throw new UnhandledServerException(t);
                 }
             }

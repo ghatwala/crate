@@ -172,7 +172,6 @@ public class LuceneShardCollectorProvider extends ShardCollectorProvider {
                 queryShardContext,
                 indexService.cache()
             );
-            collectTask.addSearcher(sharedShardContext.readerId(), searcher);
             ctx = docInputFactory.extractImplementations(collectPhase);
             collectorContext = getCollectorContext(sharedShardContext.readerId(), ctx, queryShardContext::getForField);
         } catch (Throwable t) {
@@ -195,7 +194,7 @@ public class LuceneShardCollectorProvider extends ShardCollectorProvider {
         );
         return new LuceneOrderedDocCollector(
             indexShard.shardId(),
-            searcher.searcher(),
+            searcher,
             queryContext.query(),
             queryContext.minScore(),
             Symbols.containsColumn(collectPhase.toCollect(), DocSysColumns.SCORE),

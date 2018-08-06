@@ -33,13 +33,13 @@ import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.Collector;
 import org.apache.lucene.search.FieldDoc;
-import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.TopFieldCollector;
 import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.lucene.MinimumScoreCollector;
+import org.elasticsearch.index.engine.Engine;
 import org.elasticsearch.index.shard.ShardId;
 
 import javax.annotation.Nullable;
@@ -63,14 +63,14 @@ public class LuceneOrderedDocCollector extends OrderedDocCollector {
     private final Collection<? extends LuceneCollectorExpression<?>> expressions;
     private final ScoreDocRowFunction rowFunction;
     private final DummyScorer scorer;
-    private final IndexSearcher searcher;
+    private final Engine.Searcher searcher;
 
 
     @Nullable
     private volatile FieldDoc lastDoc = null;
 
     public LuceneOrderedDocCollector(ShardId shardId,
-                                     IndexSearcher searcher,
+                                     Engine.Searcher searcher,
                                      Query query,
                                      Float minScore,
                                      boolean doDocsScores,
@@ -92,7 +92,7 @@ public class LuceneOrderedDocCollector extends OrderedDocCollector {
         this.scorer = new DummyScorer();
         this.expressions = expressions;
         this.rowFunction = new ScoreDocRowFunction(
-            searcher.getIndexReader(),
+            searcher.reader(),
             inputs,
             expressions,
             scorer
@@ -122,6 +122,7 @@ public class LuceneOrderedDocCollector extends OrderedDocCollector {
 
     @Override
     public void close() {
+        searcher.close();
     }
 
     private KeyIterable<ShardId, Row> initialSearch() throws IOException {
@@ -153,7 +154,7 @@ public class LuceneOrderedDocCollector extends OrderedDocCollector {
         if (minScore != null) {
             collector = new MinimumScoreCollector(collector, minScore);
         }
-        searcher.search(query, collector);
+        searcher.searcher().search(query, collector);
         return scoreDocToIterable(topFieldCollector.topDocs().scoreDocs);
     }
 
