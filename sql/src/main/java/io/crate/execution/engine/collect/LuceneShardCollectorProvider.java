@@ -116,12 +116,11 @@ public class LuceneShardCollectorProvider extends ShardCollectorProvider {
                 queryShardContext,
                 sharedShardContext.indexService().cache()
             );
-            collectTask.addSearcher(sharedShardContext.readerId(), searcher);
             InputFactory.Context<? extends LuceneCollectorExpression<?>> docCtx =
                 docInputFactory.extractImplementations(collectPhase);
 
             return new LuceneBatchIterator(
-                searcher.searcher(),
+                searcher,
                 queryContext.query(),
                 queryContext.minScore(),
                 Symbols.containsColumn(collectPhase.toCollect(), DocSysColumns.SCORE),

@@ -37,6 +37,7 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.store.RAMDirectory;
 import org.elasticsearch.common.breaker.NoopCircuitBreaker;
+import org.elasticsearch.index.engine.Engine;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -72,7 +73,7 @@ public class LuceneBatchIteratorTest extends CrateUnitTest {
         BatchIteratorTester tester = new BatchIteratorTester(
             () -> {
                 return new LuceneBatchIterator(
-                    indexSearcher,
+                    new Engine.Searcher("test", indexSearcher),
                     new MatchAllDocsQuery(),
                     null,
                     false,

@@ -58,7 +58,7 @@ public abstract class AbstractTask implements Task {
             try {
                 innerStart();
             } catch (Throwable t) {
-                close(t);
+                kill(t);
             }
         }
     }

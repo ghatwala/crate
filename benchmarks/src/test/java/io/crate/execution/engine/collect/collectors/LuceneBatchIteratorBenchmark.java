@@ -35,6 +35,7 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.store.RAMDirectory;
 import org.elasticsearch.common.breaker.NoopCircuitBreaker;
+import org.elasticsearch.index.engine.Engine;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Mode;
@@ -82,7 +83,7 @@ public class LuceneBatchIteratorBenchmark {
     @Benchmark
     public void measureConsumeLuceneBatchIterator(Blackhole blackhole) throws Exception {
         LuceneBatchIterator it = new LuceneBatchIterator(
-            indexSearcher,
+            new Engine.Searcher("test", indexSearcher),
             new MatchAllDocsQuery(),
             null,
             false,

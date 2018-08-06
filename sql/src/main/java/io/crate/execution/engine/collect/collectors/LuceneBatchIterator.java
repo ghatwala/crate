@@ -35,12 +35,12 @@ import io.crate.expression.reference.doc.lucene.LuceneCollectorExpression;
 import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.DocIdSetIterator;
-import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.Bits;
 import org.elasticsearch.common.breaker.CircuitBreakingException;
+import org.elasticsearch.index.engine.Engine;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -58,7 +58,6 @@ import java.util.concurrent.CompletionStage;
  */
 public class LuceneBatchIterator implements BatchIterator<Row> {
 
-    private final IndexSearcher indexSearcher;
     private final Query query;
     private final CollectorContext collectorContext;
     private final RamAccountingContext ramAccountingContext;
@@ -66,6 +65,7 @@ public class LuceneBatchIterator implements BatchIterator<Row> {
     private final LuceneCollectorExpression[] expressions;
     private final List<LeafReaderContext> leaves;
     private final InputRow row;
+    private final Engine.Searcher searcher;
     private Weight weight;
     private final CollectorFieldsVisitor visitor;
     private final Float minScore;
@@ -77,7 +77,7 @@ public class LuceneBatchIterator implements BatchIterator<Row> {
     private boolean closed = false;
     private volatile Throwable killed;
 
-    public LuceneBatchIterator(IndexSearcher indexSearcher,
+    public LuceneBatchIterator(Engine.Searcher searcher,
                                Query query,
                                @Nullable Float minScore,
                                boolean doScores,
@@ -85,7 +85,7 @@ public class LuceneBatchIterator implements BatchIterator<Row> {
                                RamAccountingContext ramAccountingContext,
                                List<? extends Input<?>> inputs,
                                Collection<? extends LuceneCollectorExpression<?>> expressions) {
-        this.indexSearcher = indexSearcher;
+        this.searcher = searcher;
         this.query = query;
         this.doScores = doScores || minScore != null;
         this.minScore = minScore;
@@ -94,7 +94,7 @@ public class LuceneBatchIterator implements BatchIterator<Row> {
         this.ramAccountingContext = ramAccountingContext;
         this.row = new InputRow(inputs);
         this.expressions = expressions.toArray(new LuceneCollectorExpression[0]);
-        leaves = indexSearcher.getTopReaderContext().leaves();
+        leaves = searcher.searcher().getTopReaderContext().leaves();
         leavesIt = leaves.iterator();
     }
 
@@ -180,6 +180,7 @@ public class LuceneBatchIterator implements BatchIterator<Row> {
     @Override
     public void close() {
         closed = true;
+        searcher.close();
         clearState();
     }
 
@@ -195,7 +196,7 @@ public class LuceneBatchIterator implements BatchIterator<Row> {
         for (LuceneCollectorExpression expression : expressions) {
             expression.startCollect(collectorContext);
         }
-        return indexSearcher.createNormalizedWeight(query, doScores);
+        return searcher.searcher().createNormalizedWeight(query, doScores);
     }
 
     @Override
@@ -241,6 +242,9 @@ public class LuceneBatchIterator implements BatchIterator<Row> {
 
     @Override
     public void kill(@Nonnull Throwable throwable) {
+        if (!closed) {
+            searcher.close();
+        }
         killed = throwable;
     }
 }
