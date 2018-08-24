@@ -41,35 +41,32 @@ import java.util.function.Function;
  *
  * It needs an upstream with which it communicates via
  *
- *  - {@link #tryFetchMore},        (to request more data from an upstream)
+ *  - {@link #fetchMore},           (to request more data from an upstream)
  *  - {@link #isUpstreamExhausted}, (to check if an upstream can deliver more data)
  *  - {@link #closeCallback}        (called once the iterator is closed,
  *                                   will receive a throwable if the BatchIterator was killed)
- *
- *  - {@link #completeLoad(Throwable)}  (used by the upstream to inform the
- *                                       BatchPagingIterator that the pagingIterator has been filled)
  */
 public class BatchPagingIterator<Key> implements BatchIterator<Row> {
 
     private final PagingIterator<Key, Row> pagingIterator;
-    private final Function<Key, Boolean> tryFetchMore;
+    private final Function<Key, CompletableFuture<? extends Iterable<? extends KeyIterable<Key, Row>>>> fetchMore;
     private final BooleanSupplier isUpstreamExhausted;
     private final Consumer<? super Throwable> closeCallback;
 
-    private Iterator<Row> it;
-    private CompletableFuture<Void> currentlyLoading;
-
-    private boolean closed = false;
     private volatile Throwable killed;
+    private volatile CompletableFuture<? extends Iterable<? extends KeyIterable<Key, Row>>> currentlyLoading;
+
+    private Iterator<Row> it;
+    private boolean closed = false;
     private Row current;
 
     public BatchPagingIterator(PagingIterator<Key, Row> pagingIterator,
-                               Function<Key, Boolean> tryFetchMore,
+                               Function<Key, CompletableFuture<? extends Iterable<? extends KeyIterable<Key, Row>>>> fetchMore,
                                BooleanSupplier isUpstreamExhausted,
                                Consumer<? super Throwable> closeCallback) {
         this.pagingIterator = pagingIterator;
         this.it = pagingIterator;
-        this.tryFetchMore = tryFetchMore;
+        this.fetchMore = fetchMore;
         this.isUpstreamExhausted = isUpstreamExhausted;
         this.closeCallback = closeCallback;
     }
@@ -111,11 +108,21 @@ public class BatchPagingIterator<Key> implements BatchIterator<Row> {
     public CompletionStage<?> loadNextBatch() {
         String illegalState = getIllegalState();
         if (illegalState == null) {
-            currentlyLoading = new CompletableFuture<>();
-            if (tryFetchMore.apply(pagingIterator.exhaustedIterable())) {
-                return currentlyLoading;
-            }
-            return CompletableFutures.failedFuture(new IllegalStateException("Although isLoaded is false, tryFetchMoreFailed"));
+            CompletableFuture<? extends Iterable<? extends KeyIterable<Key, Row>>> future =
+                fetchMore.apply(pagingIterator.exhaustedIterable());
+            currentlyLoading = future;
+            return future
+                .whenComplete((rows, ex) -> {
+                    if (ex == null) {
+                        pagingIterator.merge(rows);
+                        if (isUpstreamExhausted.getAsBoolean()) {
+                            pagingIterator.finish();
+                        }
+                    } else {
+                        killed = ex;
+                        pagingIterator.finish();
+                    }
+                });
         }
         return CompletableFutures.failedFuture(new IllegalStateException(illegalState));
     }
@@ -136,22 +143,6 @@ public class BatchPagingIterator<Key> implements BatchIterator<Row> {
         return isUpstreamExhausted.getAsBoolean();
     }
 
-    public void completeLoad(@Nullable Throwable t) {
-        if (currentlyLoading == null) {
-            if (t == null) {
-                killed = new IllegalStateException("completeLoad called without having called loadNextBatch");
-            } else {
-                killed = t;
-            }
-            return;
-        }
-        if (t == null) {
-            currentlyLoading.complete(null);
-        } else {
-            currentlyLoading.completeExceptionally(t);
-        }
-    }
-
     private void raiseIfClosedOrKilled() {
         if (killed != null) {
             Exceptions.rethrowUnchecked(killed);
@@ -164,5 +155,10 @@ public class BatchPagingIterator<Key> implements BatchIterator<Row> {
     @Override
     public void kill(@Nonnull Throwable throwable) {
         killed = throwable;
+        pagingIterator.finish();
+        closeCallback.accept(throwable);
+        if (currentlyLoading != null) {
+            currentlyLoading.completeExceptionally(throwable);
+        }
     }
 }

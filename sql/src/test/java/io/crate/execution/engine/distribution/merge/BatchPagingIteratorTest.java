@@ -25,6 +25,7 @@ package io.crate.execution.engine.distribution.merge;
 import io.crate.data.Row;
 import io.crate.testing.BatchIteratorTester;
 import io.crate.testing.RowGenerator;
+import org.hamcrest.Matchers;
 import org.junit.Test;
 
 import java.util.Collections;
@@ -32,8 +33,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import static org.hamcrest.Matchers.is;
-import static org.junit.Assert.assertThat;
+import static io.crate.concurrent.CompletableFutures.failedFuture;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 public class BatchPagingIteratorTest {
 
@@ -49,7 +50,7 @@ public class BatchPagingIteratorTest {
             pagingIterator.merge(Collections.singletonList(new KeyIterable<>(0, rows)));
             return new BatchPagingIterator<>(
                 pagingIterator,
-                exhaustedIt -> false,
+                exhaustedIt -> failedFuture(new IllegalStateException("upstreams exhausted")),
                 () -> true,
                 throwable -> {}
             );
@@ -58,30 +59,17 @@ public class BatchPagingIteratorTest {
     }
 
     @Test
-    public void testCompleteLoadCanBeCalledWithoutHavingCalledLoadNextBatch() throws Exception {
-        PassThroughPagingIterator<Integer, Row> pagingIterator = PassThroughPagingIterator.repeatable();
-        BatchPagingIterator<Integer> iterator = new BatchPagingIterator<>(
-            pagingIterator,
-            exhaustedIt -> false,
-            () -> true,
-            throwable -> {}
-        );
-        // must not throw an exception
-        iterator.completeLoad(new IllegalStateException("Dummy"));
-    }
-
-    @Test
     public void testFinishPagingIteratorOnClose() {
         TestPagingIterator pagingIterator = new TestPagingIterator();
         BatchPagingIterator<Integer> iterator = new BatchPagingIterator<>(
             pagingIterator,
-            exhaustedIt -> false,
+            exhaustedIt -> failedFuture(new IllegalStateException("upstreams exhausted")),
             () -> true,
             throwable -> {}
         );
 
         iterator.close();
-        assertThat(pagingIterator.finishedCalled, is(true));
+        assertThat(pagingIterator.finishedCalled, Matchers.is(true));
     }
 
     private static class TestPagingIterator implements PagingIterator<Integer, Row> {
