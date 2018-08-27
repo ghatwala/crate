@@ -42,4 +42,9 @@ public class KeyIterable<TKey, TRow> implements Iterable<TRow> {
     public TKey key() {
         return key;
     }
+
+    @Override
+    public String toString() {
+        return "KeyIterable{" + key + ", " + iterable + '}';
+    }
 }

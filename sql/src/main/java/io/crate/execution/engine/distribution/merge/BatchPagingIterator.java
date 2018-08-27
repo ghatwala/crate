@@ -114,6 +114,7 @@ public class BatchPagingIterator<Key> implements BatchIterator<Row> {
             return future
                 .whenComplete((rows, ex) -> {
                     if (ex == null) {
+                        System.out.println("### rows: " + rows);
                         pagingIterator.merge(rows);
                         if (isUpstreamExhausted.getAsBoolean()) {
                             pagingIterator.finish();

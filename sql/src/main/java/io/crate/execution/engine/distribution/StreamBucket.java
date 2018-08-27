@@ -207,4 +207,11 @@ public class StreamBucket implements Bucket, Streamable {
             out.writeBytesReference(bytes);
         }
     }
+
+    @Override
+    public String toString() {
+        return "StreamBucket{" +
+               "size=" + size +
+               '}';
+    }
 }

@@ -206,7 +206,7 @@ public class CumulativePageBucketReceiver implements PageBucketReceiver {
         return nextPage;
     }
 
-    private void fetchExhausted(Integer exhaustedBucket) {
+    private void fetchExhausted(int exhaustedBucket) {
         synchronized (buckets) {
             // We're only requesting data for 1 specific bucket,
             // so we need to fill in other buckets to meet the
